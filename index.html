@@ -2,11 +2,9 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <!-- 让页面在手机上自适应 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>烟花燃放效果</title>
   <style>
-    /* 去除默认边距，并设置背景为黑色 */
     body {
       margin: 0;
       padding: 0;
@@ -16,140 +14,64 @@
     canvas {
       display: block;
     }
+    .watermark {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      color: white;
+      font-size: 14px;
+      font-family: Arial, sans-serif;
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
+  <div class="watermark">羊羊</div> <!-- 左下角标注 -->
   <script>
     (function() {
-      // 获取 canvas 对象及绘图上下文
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
-
-      // 设置画布宽高，保证全屏显示
+      
       let cw = window.innerWidth;
       let ch = window.innerHeight;
       canvas.width = cw;
       canvas.height = ch;
-
-      // 窗口大小改变时更新画布尺寸
+      
       window.addEventListener('resize', () => {
         cw = window.innerWidth;
         ch = window.innerHeight;
         canvas.width = cw;
         canvas.height = ch;
       });
-
-      // 工具函数：生成 min 到 max 范围内的随机数
+      
       function random(min, max) {
         return Math.random() * (max - min) + min;
       }
 
-      // 工具函数：计算两点间距离
-      function calculateDistance(x1, y1, x2, y2) {
-        const xDistance = x1 - x2;
-        const yDistance = y1 - y2;
-        return Math.sqrt(xDistance * xDistance + yDistance * yDistance);
-      }
-
-      // 存放烟花（火箭）和粒子的数组
-      let fireworks = [];
       let particles = [];
-
-      // 用于自动发射烟花的计时器
+      
       let timerTick = 0;
-      let timerTotal = 80;  // 调整自动发射频率
+      let timerTotal = 60;  // 自动发射频率
 
-      // 烟花（火箭）构造函数
-      function Firework(sx, sy, tx, ty) {
-        this.x = sx;         // 当前坐标
-        this.y = sy;
-        this.sx = sx;        // 发射起点
-        this.sy = sy;
-        this.tx = tx;        // 目标点（爆炸点）
-        this.ty = ty;
-        this.distanceToTarget = calculateDistance(sx, sy, tx, ty);
-        this.distanceTraveled = 0;
-        this.coordinates = [];
-        this.coordinateCount = 3; // 用于记录轨迹的坐标数
-        while (this.coordinateCount--) {
-          this.coordinates.push([this.x, this.y]);
-        }
-        this.angle = Math.atan2(ty - sy, tx - sx);
-        this.speed = 2;
-        this.acceleration = 1.05;
-        this.hue = random(0, 360);           // 固定一个随机色调
-        this.brightness = random(60, 80);      // 调高亮度，使火箭更灿烂
-        this.targetRadius = 1; // 爆炸目标点的圆圈半径
-      }
-
-      // 更新烟花位置，检测是否到达目标点
-      Firework.prototype.update = function(index) {
-        // 更新轨迹数组，保存最近的几个位置
-        this.coordinates.pop();
-        this.coordinates.unshift([this.x, this.y]);
-
-        // 目标圆圈脉冲效果
-        if (this.targetRadius < 8) {
-          this.targetRadius += 0.3;
-        } else {
-          this.targetRadius = 1;
-        }
-
-        // 速度递增
-        this.speed *= this.acceleration;
-
-        // 根据角度计算运动分量
-        let vx = Math.cos(this.angle) * this.speed;
-        let vy = Math.sin(this.angle) * this.speed;
-        this.distanceTraveled = calculateDistance(this.sx, this.sy, this.x + vx, this.y + vy);
-
-        // 判断是否到达目标，若到达则生成爆炸粒子并删除烟花
-        if (this.distanceTraveled >= this.distanceToTarget) {
-          createParticles(this.tx, this.ty, this.hue);  // 传入火箭色调，让爆炸颜色统一
-          fireworks.splice(index, 1);
-        } else {
-          this.x += vx;
-          this.y += vy;
-        }
-      };
-
-      // 绘制烟花（火箭）及其轨迹
-      Firework.prototype.draw = function() {
-        ctx.beginPath();
-        // 绘制轨迹线条
-        let trailEnd = this.coordinates[this.coordinates.length - 1];
-        ctx.moveTo(trailEnd[0], trailEnd[1]);
-        ctx.lineTo(this.x, this.y);
-        ctx.strokeStyle = 'hsl(' + this.hue + ', 100%, ' + this.brightness + '%)';
-        ctx.stroke();
-
-        // 绘制目标圆圈
-        ctx.beginPath();
-        ctx.arc(this.tx, this.ty, this.targetRadius, 0, Math.PI * 2);
-        ctx.stroke();
-      };
-
-      // 粒子构造函数（用于爆炸效果）
-      function Particle(x, y, hue) {
+      function Particle(x, y) {
         this.x = x;
         this.y = y;
         this.coordinates = [];
-        this.coordinateCount = 8; // 增加轨迹点数，使轨迹更长
+        this.coordinateCount = 3; // 减少轨迹点，缩小中心空白
         while (this.coordinateCount--) {
           this.coordinates.push([this.x, this.y]);
         }
         this.angle = random(0, Math.PI * 2);
-        this.speed = random(1, 12); // 提高最大速度，使爆炸更灿烂
-        this.friction = 0.95;
-        this.gravity = 0.7;
-        this.hue = (hue !== undefined) ? hue : random(0, 360);
-        this.brightness = random(60, 90); // 调高亮度
+        this.speed = random(2, 12); // 减小初速度，缩小中心空白
+        this.friction = 0.96;
+        this.gravity = 0.5;
+        this.hue = random(0, 360);
+        this.brightness = random(60, 90);
         this.alpha = 1;
-        this.decay = random(0.015, 0.03);
+        this.decay = random(0.01, 0.02);
       }
 
-      // 更新粒子状态
       Particle.prototype.update = function(index) {
         this.coordinates.pop();
         this.coordinates.unshift([this.x, this.y]);
@@ -163,7 +85,6 @@
         }
       };
 
-      // 绘制粒子轨迹
       Particle.prototype.draw = function() {
         ctx.beginPath();
         let trailEnd = this.coordinates[this.coordinates.length - 1];
@@ -173,88 +94,52 @@
         ctx.stroke();
       };
 
-      // 在指定位置创建一堆粒子，用于模拟烟花爆炸
-      function createParticles(x, y, hue) {
-        let particleCount = 50;  // 增加粒子数量
+      function createParticles(x, y) {
+        let particleCount = 500;
         while (particleCount--) {
-          particles.push(new Particle(x, y, hue));
+          particles.push(new Particle(x, y));
         }
       }
 
-      // 主动画循环
       function animate() {
         requestAnimationFrame(animate);
-
-        // 绘制半透明黑色矩形，实现残影（渐隐）效果
         ctx.globalCompositeOperation = 'destination-out';
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(0, 0, cw, ch);
-
-        // 绘制背景文字“羊羊”
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.font = "bold 100px Arial";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
-        ctx.shadowColor = "rgba(255,255,255,0.3)";
-        ctx.shadowBlur = 10;
-        ctx.fillText("羊羊", cw / 2, ch / 2);
-        ctx.shadowBlur = 0;  // 重置阴影
-
-        // 设置混合模式以实现烟花明亮叠加效果
         ctx.globalCompositeOperation = 'lighter';
 
-        // 更新并绘制所有烟花（火箭）
-        for (let i = fireworks.length - 1; i >= 0; i--) {
-          fireworks[i].draw();
-          fireworks[i].update(i);
-        }
-
-        // 更新并绘制所有爆炸粒子
         for (let i = particles.length - 1; i >= 0; i--) {
           particles[i].draw();
           particles[i].update(i);
         }
 
-        // 自动发射烟花
         if (timerTick >= timerTotal) {
-          // 从屏幕底部中间发射，目标为屏幕上半部分的随机位置
-          let startX = cw / 2;
-          let startY = ch;
           let targetX = random(0, cw);
           let targetY = random(0, ch / 2);
-          fireworks.push(new Firework(startX, startY, targetX, targetY));
+          createParticles(targetX, targetY);
           timerTick = 0;
         } else {
           timerTick++;
         }
       }
 
-      // 启动动画
       animate();
 
-      // 监听鼠标点击事件，点击时在点击位置生成烟花
       canvas.addEventListener('mousedown', function(e) {
         let rect = canvas.getBoundingClientRect();
         let targetX = e.clientX - rect.left;
         let targetY = e.clientY - rect.top;
-        let startX = cw / 2;
-        let startY = ch;
-        fireworks.push(new Firework(startX, startY, targetX, targetY));
+        createParticles(targetX, targetY);
       });
 
-      // 监听触摸事件，支持手机端操作
       canvas.addEventListener('touchstart', function(e) {
         e.preventDefault();
         let rect = canvas.getBoundingClientRect();
         let touch = e.touches[0];
         let targetX = touch.clientX - rect.left;
         let targetY = touch.clientY - rect.top;
-        let startX = cw / 2;
-        let startY = ch;
-        fireworks.push(new Firework(startX, startY, targetX, targetY));
+        createParticles(targetX, targetY);
       }, {passive: false});
-      
     })();
   </script>
 </body>
